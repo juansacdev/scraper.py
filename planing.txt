@@ -1,0 +1,8 @@
+-item = .article.element
+    - titular
+    - news_link
+    - description
+    - tag
+    - tag_link
+    - img
+    - date
