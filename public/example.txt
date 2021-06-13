@@ -1,0 +1,3 @@
+title|link|description|tag|tag_link|image|date
+
+# this file is an example for data scraped

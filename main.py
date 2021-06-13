@@ -1,87 +1,80 @@
+import time
 import requests
 from bs4 import BeautifulSoup
 from datetime import datetime, date as dt
-URL = 'https://www.diariolibre.com/'
+URL = 'https://www.diariolibre.com'
+FILE_NAME = f'{datetime.now().strftime("%d%m%Y%H%M%S")}.csv'
+START = time.time()
 
 
-# FILE_NAME = f'{datetime.now().strftime("%d%m%Y-%H%M%S")}'
+with open(f'./public/{FILE_NAME}', 'w', encoding='utf-8') as f:
+    f.write('title|link|description|tag|tag_link|image|date\n')
+    f.close()
+
 
 def card_html_to_obj(card):
-    try:
-        titular = card.find(class_='priority-content').text
-        news_link = card.find('a')['href']
-        description = card.find(class_='cutline-text').text
-        tag = card.find(class_='row info-container py-2 px-3').find('a').text
-        # eslint-disable next line
-        tag_link = card.find(
-            class_='row info-container py-2 px-3').find('a')['href']
-        img = card.find('img')['data-srcset']
-        # date = dt.today().strftime("%d/%m/%Y")
+    # caching error with title
+    if card.find('span', attrs={'class': 'priority-content'}) != None:
+        title = card.find(
+            'span', attrs={'class': 'priority-content'}).text.replace(' |', ',')
+    else:
+        title = None
 
-    except:
-        titular = ''
-        news_link = ''
-        description = ''
-        tag = ''
-        tag_link = ''
-        img = ''
+    # caching error with link
+    if card.find('a', attrs={'class': 'cutlineShow'}) != None:
+        link = f"{URL}{card.find('a', attrs={'class': 'cutlineShow'})['href']}"
+    elif card.find('div', attrs={'class': 'article-box'}) != None:
+        link = f"{URL}{card.find('div', attrs={'class': 'article-box'}).find('a')['href']}"
+    else:
+        link = None
 
-    return {
-        'titular': titular,
-        'news_link': news_link,
-        'description': description,
-        'tag': tag,
-        'tag_link': tag_link,
-        'img': img,
-        # 'date': date,
-    }
+    # # caching error with description
+    if card.find('span', attrs={'class': 'cutline-text'}) != None:
+        description = card.find('span', attrs={'class': 'cutline-text'}).text
+    else:
+        description = None
+
+    # caching error with tag
+    if card.find('div', attrs={'class': 'row info-container py-2 px-3'}) != None:
+        tag = card.find(
+            'div', attrs={'class': 'row info-container py-2 px-3'}).find('a').text
+        tag_link = f'{URL}{card.find("div", attrs={"class": "row info-container py-2 px-3"}).find("a")["href"]}'
+
+    elif card.find('div', attrs={'class': 'float-left mr-1 author'}) != None:
+        tag = card.find(
+            'div', attrs={'class': 'float-left mr-1 author'}).find('a').text
+        tag_link = f'{URL}{card.find("div", attrs={"class": "float-left mr-1 author"}).find("a")["href"]}'
+    else:
+        tag = None
+        tag_link = None
+
+    # caching error with img
+    if card.find('div', attrs={'class': 'img-container'}) != None:
+        img = card.find('div', attrs={'class': 'img-container'}).find(
+            'img')['data-srcset'].split(' ')[0].replace('//', '')
+    else:
+        img = None
+
+    date = dt.today().strftime("%d/%m/%Y")
+
+    with open(f'./public/{FILE_NAME}', 'a', encoding='utf-8') as f:
+        f.write(f'{title}|{link}|{description}|{tag}|{tag_link}|{img}|{date}\n')
+        f.close()
 
 
 def main():
     page = requests.get(URL)
-
-    # headers_res = page.headers
-    # headers_req = page.request.headers
-    # status_code = page.status_code
     if page.status_code == 200:
-        soup = BeautifulSoup(page.text, 'lxml')
+        soup = BeautifulSoup(page.content, 'lxml')
         all_items_news = soup.find_all(
             "article",
             class_="article element full-access norestricted"
         )
 
-    # print(card_html_to_obj(all_items_news[0]))
+    for card in all_items_news:
+        card_html_to_obj(card)
 
-    item = all_items_news[1]
-    titular = item.find(class_='priority-content').text
-    news_link = item.find('a')['href']
-    description = item.find(class_='cutline-text').text
-    try:
-        tag = item.find(class_='row info-container py-2 px-3').find('a').text
-        tag_link = item.find(
-            class_='row info-container py-2 px-3').find('a')['href']
-    except:
-        tag = item.find(class_='float-left mr-1 author').find('a').text
-        tag_link = item.find(
-            class_='float-left mr-1 author').find('a')['href']
-        img = item.find('img')['data-srcset']
-    # date = dt.today().strftime("%d/%m/%Y")
-
-    print({
-        'titular': titular,
-        'news_link': news_link,
-        'description': description,
-        'tag': tag,
-        'tag_link': tag_link,
-        'img': img,
-    })
-
-    # for item in all_items_news:
-    #     try:
-    #         item.find('img')['data-srcset']
-    #     except:
-    #         print(all_items_news.index(item))
-    #         # continue
+    print(time.time() - START)
 
 
 if __name__ == '__main__':
