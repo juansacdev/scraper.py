@@ -2,6 +2,7 @@ import time
 import requests
 from bs4 import BeautifulSoup
 from datetime import datetime, date as dt
+
 URL = 'https://www.diariolibre.com'
 FILE_NAME = f'{datetime.now().strftime("%d%m%Y%H%M%S")}.csv'
 START = time.time()
@@ -18,7 +19,7 @@ def card_html_to_obj(card):
         title = card.find(
             'span', attrs={'class': 'priority-content'}).text.replace(' |', ',')
     else:
-        title = None
+        title = ''
 
     # caching error with link
     if card.find('a', attrs={'class': 'cutlineShow'}) != None:
@@ -26,13 +27,13 @@ def card_html_to_obj(card):
     elif card.find('div', attrs={'class': 'article-box'}) != None:
         link = f"{URL}{card.find('div', attrs={'class': 'article-box'}).find('a')['href']}"
     else:
-        link = None
+        link = ''
 
     # # caching error with description
     if card.find('span', attrs={'class': 'cutline-text'}) != None:
         description = card.find('span', attrs={'class': 'cutline-text'}).text
     else:
-        description = None
+        description = ''
 
     # caching error with tag
     if card.find('div', attrs={'class': 'row info-container py-2 px-3'}) != None:
@@ -45,21 +46,23 @@ def card_html_to_obj(card):
             'div', attrs={'class': 'float-left mr-1 author'}).find('a').text
         tag_link = f'{URL}{card.find("div", attrs={"class": "float-left mr-1 author"}).find("a")["href"]}'
     else:
-        tag = None
-        tag_link = None
+        tag = ''
+        tag_link = ''
 
     # caching error with img
     if card.find('div', attrs={'class': 'img-container'}) != None:
         img = card.find('div', attrs={'class': 'img-container'}).find(
             'img')['data-srcset'].split(' ')[0].replace('//', '')
     else:
-        img = None
+        img = ''
 
     date = dt.today().strftime("%d/%m/%Y")
 
-    with open(f'./public/{FILE_NAME}', 'a', encoding='utf-8') as f:
-        f.write(f'{title}|{link}|{description}|{tag}|{tag_link}|{img}|{date}\n')
-        f.close()
+    if (title and link) != '':
+        with open(f'./public/{FILE_NAME}', 'a', encoding='utf-8') as f:
+            f.write(
+                f'{title}|{link}|{description}|{tag}|{tag_link}|{img}|{date}\n')
+            f.close()
 
 
 def main():
@@ -74,7 +77,7 @@ def main():
     for card in all_items_news:
         card_html_to_obj(card)
 
-    print(time.time() - START)
+    print(f'Time: {time.time() - START} seg')
 
 
 if __name__ == '__main__':
