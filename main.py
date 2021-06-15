@@ -29,124 +29,79 @@ def get_data_from_link(link_to_scrap, file_name):
             return False
 
         else:
-            soup = BeautifulSoup(res.content.decode(
-                encoding='utf-8'), 'html.parser')
+            soup = BeautifulSoup(res.content.decode('utf-8'), 'html.parser')
 
             try:
                 title = soup.find(
                     'span', attrs={'class': 'priority-content'}).text.replace(' |', ',')
             except:
                 title = ''
-                # print(f'Title not found in: {link_to_scrap}')
-
-            # if not soup.find('span', attrs={'class': 'priority-content'}):
-            #     title = ''
-            # else:
-            #     title = soup.find(
-            #         'span', attrs={'class': 'priority-content'}).text.replace(' |', ',')
 
             try:
                 sub_title = soup.find(
                     'ul', attrs={'class': 'list-subtitle'}).find('li').text
             except:
                 sub_title = ''
-                # print(f'Sub title not found in: {link_to_scrap}')
-
-            # if not soup.find('ul', attrs={'class': 'list-subtitle'}):
-            #     sub_title = ''
-            # else:
-            #     sub_title = soup.find(
-            #         'ul', attrs={'class': 'list-subtitle'})
 
             try:
                 author = soup.find(
                     'span', attrs={'class': 'author-date'}).find('strong').text
-                author_articles = f"{URL}{soup.find('span', attrs={'class': 'author-date'}).find('a')['href']}"
-                datetime = soup.find(
-                    'span', attrs={'class': 'author-date'}).find('time').text
-
             except:
                 author = ''
-                author_articles = ''
-                datetime = ''
-                # print(f'Data author not found in: {link_to_scrap}')
 
-            # if not soup.find('span', attrs={'class': 'author-date'}):
-            #     author = ''
-            #     author_articles = ''
-            # else:
-            #     author = soup.find(
-            #         'span', attrs={'class': 'author-date'}).find('strong').text
-            #     author_articles = f"{URL}{soup.find('span', attrs={'class': 'author-date'}).find('a')['href']}"
+            try:
+                author_articles = f"{URL}{soup.find('span', attrs={'class': 'author-date'}).find('a')['href']}"
+            except:
+                author_articles = ''
+
+            try:
+                datetime = soup.find(
+                    'span', attrs={'class': 'author-date'}).find('time').text
+            except:
+                datetime = ''
 
             try:
                 article = ''
-                paragraphos = soup.find(
-                    'div', attrs={'class': 'text'}).find_all('p')
-                for p in paragraphos:
-                    article += f'{p.text} '
+                if soup.find(
+                        'div', attrs={'class': 'text'}).find_all('p'):
+                    paragraphos = soup.find(
+                        'div', attrs={'class': 'text'}).find_all('p')
+                    for p in paragraphos:
+                        article += f'{p.text} '
+                elif (soup.find('div', attrs={'class': 'text'}).find('h2').text):
+                    article = soup.find(
+                        'div', attrs={'class': 'text'}).find('h2').text
+                else:
+                    article = ''
 
             except:
                 article = ''
-                # print(f'Article not found in: {link_to_scrap}')
-
-            # if soup.find('div', attrs={'class': 'text'}) != None:
-                # article = ''
-            #     paragraphos = soup.find(
-            #         'div', attrs={'class': 'text'}).find_all('p')
-            #     for p in paragraphos:
-            #         article += f'{p.text} '
-            # else:
-                # article = ''
 
             try:
-                tags = soup.find(
-                    'div', attrs={'class': 'categoryTitle'}).find_all('a')
-                tags = [tag.text for tag in tags]
-                tags = '. '.join(tags)
+                if soup.find(
+                        'div', attrs={'class': 'categoryTitle'}).find_all('a'):
+                    tags = soup.find(
+                        'div', attrs={'class': 'categoryTitle'}).find_all('a')
+                    tags = [
+                        tag.text for tag in tags if tag != None]
+                    tags = '. '.join(tags)
+                elif (len(soup.find_all('article', attrs={
+                        'class': 'categoryListItem categoryArticleItem'})) > 0):
+                    tags = soup.find_all(
+                        'article', attrs={'class': 'categoryListItem categoryArticleItem'})
+                    tags = [tag.find('a').text.strip() for tag in tags]
+                    tags = '. '.join(tags)
+                else:
+                    tags = ''
             except:
                 tags = ''
-                # print(f'Tags not found in: {link_to_scrap}')
-
-            # if not soup.find('div', attrs={'class': 'categoryTitle'}):
-            #     tags = ''
-            # else:
-            #     tags = soup.find(
-            #         'div', attrs={'class': 'categoryTitle'}).find_all('a')
-            #     tags = [tag.text for tag in tags]
-            #     tags = '. '.join(tags)
 
             try:
                 img = soup.find('div', attrs={'class': 'img-container'}).find(
                     'img')['data-srcset'].split(' ')[0].replace('//', '')
             except:
-                if soup.find('video', attrs={'class': 'jw-video jw-reset'}) != None:
-                    img = '(Video) - Unsupported format'
-                else:
-                    img = ''
+                img = ''
 
-            # if soup.find(
-            #         'span', attrs={'class': 'author-date'}).find('time') != None:
-            #     datetime = soup.find(
-            #         'span', attrs={'class': 'author-date'}).find('time').text
-            # else:
-            #     datetime = ''
-
-            if ((title == '') or (sub_title == '') or (author == '') or (author_articles == '') or (datetime == '') or (article == '') or (tags == '') or (img == '')):
-                bad_data = {
-                    'title': title,
-                    'sub_title': sub_title,
-                    'article': article,
-                    'author': author,
-                    'author_articles': author_articles,
-                    'tags': tags,
-                    'img': img,
-                    'link': link_to_scrap,
-                    'datetime': datetime,
-                }
-                write_file_with_error(bad_data, file_name)
-
-            elif (title and sub_title and author and author_articles and datetime and article and tags and img):
                 data = {
                     'title': title,
                     'sub_title': sub_title,
@@ -166,6 +121,7 @@ def get_data_from_link(link_to_scrap, file_name):
             print(link_to_scrap)
 
         else:
+            print(link_to_scrap)
             print(f'Error:\n{e}\n')
 
 
@@ -177,22 +133,13 @@ def write_data_into_file(obj, file_name):
         print(f'writing...')
 
 
-def write_file_with_error(obj, file_name):
-    with open(file=f'./errors/{file_name}', mode='a', encoding='utf-8') as f:
-        f.write(
-            f'{obj["title"]}|{obj["sub_title"]}|{obj["article"]}|{obj["author"]}|{obj["author_articles"]}|{obj["tags"]}|{obj["img"]}|{obj["link"]}|{obj["datetime"]}\n')
-        f.close()
-
-
 def main(url, file_name):
     links_articles = get_links_from_main_page(url)
+    links_articles = list(filter(lambda link: ("encuestas" not in link) and (
+        "/horoscopo/" not in link) and ("/opinion/" not in link) and ("/cronologia-autor/" not in link) and ("/fotos/" not in link), links_articles))
 
     for link in links_articles:
-        if ("encuestas" not in link) and ("/horoscopo/" not in link) and ("/opinion/" not in link) and ("/cronologia-autor/" not in link):
-            get_data_from_link(link, file_name)
-        else:
-            print(f'Skiping: {link}')
-            continue
+        get_data_from_link(link, file_name)
 
     print(f'Time: {time.time() - START} seg')
 
@@ -203,11 +150,6 @@ if __name__ == '__main__':
     START = time.time()
 
     with open(file=f'./public/{FILE_NAME}', mode='w', encoding='utf-8') as f:
-        f.write(
-            'title|sub_title|article|author|author_articles|tags|img|link|datetime\n')
-        f.close()
-
-    with open(file=f'./errors/{FILE_NAME}', mode='w', encoding='utf-8') as f:
         f.write(
             'title|sub_title|article|author|author_articles|tags|img|link|datetime\n')
         f.close()
