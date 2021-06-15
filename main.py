@@ -1,84 +1,145 @@
 import time
 import requests
 from bs4 import BeautifulSoup
-from datetime import datetime, date as dt
-
-URL = 'https://www.diariolibre.com'
-FILE_NAME = f'{datetime.now().strftime("%d%m%Y%H%M%S")}.csv'
-START = time.time()
+from datetime import datetime
 
 
-with open(f'./public/{FILE_NAME}', 'w', encoding='utf-8') as f:
-    f.write('title|link|description|tag|tag_link|image|date\n')
-    f.close()
-
-
-def card_html_to_obj(card):
-    # caching error with title
-    if card.find('span', attrs={'class': 'priority-content'}) != None:
-        title = card.find(
-            'span', attrs={'class': 'priority-content'}).text.replace(' |', ',')
-    else:
-        title = ''
-
-    # caching error with link
-    if card.find('a', attrs={'class': 'cutlineShow'}) != None:
-        link = f"{URL}{card.find('a', attrs={'class': 'cutlineShow'})['href']}"
-    elif card.find('div', attrs={'class': 'article-box'}) != None:
-        link = f"{URL}{card.find('div', attrs={'class': 'article-box'}).find('a')['href']}"
-    else:
-        link = ''
-
-    # # caching error with description
-    if card.find('span', attrs={'class': 'cutline-text'}) != None:
-        description = card.find('span', attrs={'class': 'cutline-text'}).text
-    else:
-        description = ''
-
-    # caching error with tag
-    if card.find('div', attrs={'class': 'row info-container py-2 px-3'}) != None:
-        tag = card.find(
-            'div', attrs={'class': 'row info-container py-2 px-3'}).find('a').text
-        tag_link = f'{URL}{card.find("div", attrs={"class": "row info-container py-2 px-3"}).find("a")["href"]}'
-
-    elif card.find('div', attrs={'class': 'float-left mr-1 author'}) != None:
-        tag = card.find(
-            'div', attrs={'class': 'float-left mr-1 author'}).find('a').text
-        tag_link = f'{URL}{card.find("div", attrs={"class": "float-left mr-1 author"}).find("a")["href"]}'
-    else:
-        tag = ''
-        tag_link = ''
-
-    # caching error with img
-    if card.find('div', attrs={'class': 'img-container'}) != None:
-        img = card.find('div', attrs={'class': 'img-container'}).find(
-            'img')['data-srcset'].split(' ')[0].replace('//', '')
-    else:
-        img = ''
-
-    date = dt.today().strftime("%d/%m/%Y")
-
-    if (title and link) != '':
-        with open(f'./public/{FILE_NAME}', 'a', encoding='utf-8') as f:
-            f.write(
-                f'{title}|{link}|{description}|{tag}|{tag_link}|{img}|{date}\n')
-            f.close()
-
-
-def main():
-    page = requests.get(URL)
-    if page.status_code == 200:
-        soup = BeautifulSoup(page.content, 'lxml')
-        all_items_news = soup.find_all(
-            "article",
-            class_="article element full-access norestricted"
+def get_links_from_main_page(url):
+    try:
+        # Peticion a la main page
+        res = requests.get(url)
+        assert res.status_code == 200, 'Error in request'
+        soup = BeautifulSoup(res.content.decode('utf-8'), 'html.parser')
+        articles = soup.find_all(
+            name='div',
+            attrs={'class': 'article-box'}
         )
+        link_list = [
+            f'{URL}{link.find("a")["href"]}' for link in articles if link.find('a') != None]
 
-    for card in all_items_news:
-        card_html_to_obj(card)
+        return link_list
+
+    except AssertionError as ae:
+        print(ae)
+        return False
+
+
+def get_data_from_link(link_to_scrap):
+    try:
+        # request al link
+        res = requests.get(link_to_scrap)
+        if res.status_code == 200:
+            soup = BeautifulSoup(res.content.decode(
+                encoding='utf-8'), 'html.parser')
+
+            bad_links = []
+
+            if not soup.find('span', attrs={'class': 'priority-content'}):
+                title = ''
+            else:
+                title = soup.find(
+                    'span', attrs={'class': 'priority-content'}).text.replace(' |', ',')
+
+            if not soup.find('ul', attrs={'class': 'list-subtitle'}):
+                sub_title = ''
+            else:
+                sub_title = soup.find(
+                    'ul', attrs={'class': 'list-subtitle'}).find('li').text
+
+            if not soup.find('span', attrs={'class': 'author-date'}):
+                author = ''
+                author_articles = ''
+            else:
+                author = soup.find(
+                    'span', attrs={'class': 'author-date'}).find('strong').text
+                author_articles = f"{URL}{soup.find('span', attrs={'class': 'author-date'}).find('a')['href']}"
+
+            article = ''
+            if soup.find('div', attrs={'class': 'text'}) != None:
+                paragraphos = soup.find(
+                    'div', attrs={'class': 'text'}).find_all('p')
+                for p in paragraphos:
+                    article += f'{p.text} '
+
+            if not soup.find('div', attrs={'class': 'categoryTitle'}):
+                tags = ''
+            else:
+                tags = soup.find(
+                    'div', attrs={'class': 'categoryTitle'}).find_all('a')
+                tags = [tag.text for tag in tags]
+                tags = '. '.join(tags)
+                tags
+
+            try:
+                if not soup.find('div', attrs={'class': 'img-container'}):
+                    raise AttributeError('No image')
+                else:
+                    img = soup.find('div', attrs={'class': 'img-container'}).find(
+                        'img')['data-srcset'].split(' ')[0].replace('//', '')
+            except:
+                img = '(Video) - Unsupported format'
+
+            if soup.find(
+                    'span', attrs={'class': 'author-date'}).find('time') != None:
+                datetime = soup.find(
+                    'span', attrs={'class': 'author-date'}).find('time').text
+            else:
+                datetime = ''
+
+            if (title and sub_title and author and author_articles and article) != '':
+                return {
+                    'title': title,
+                    'sub_title': sub_title,
+                    'article': article,
+                    'author': author,
+                    'author_articles': author_articles,
+                    'tags': tags,
+                    'img': img,
+                    'link': link_to_scrap,
+                    'datetime': datetime,
+                }
+
+            else:
+                return False
+
+    except:
+        bad_links.append(link_to_scrap)
+
+
+def write_data_into_file(obj, file_name):
+    with open(file=f'./public/{file_name}', mode='a', encoding='utf-8') as f:
+        f.write(
+            f'{obj["title"]}|{obj["sub_title"]}|{obj["article"]}|{obj["author"]}|{obj["author_articles"]}|{obj["tags"]}|{obj["img"]}|{obj["link"]}|{obj["datetime"]}\n')
+        f.close()
+        print(f'writing...')
+
+
+def main(url, file_name):
+    links_articles = get_links_from_main_page(url)
+
+    for link in links_articles:
+        if ("encuestas" or "horoscopo") in link:
+            continue
+
+        data = get_data_from_link(link)
+
+        if not data:
+            continue
+
+        else:
+            write_data_into_file(data, file_name)
 
     print(f'Time: {time.time() - START} seg')
 
 
 if __name__ == '__main__':
-    main()
+    URL = 'https://www.diariolibre.com'
+    FILE_NAME = f'{datetime.now().strftime("%d%m%Y%H%M%S")}.csv'
+    START = time.time()
+
+    with open(file=f'./public/{FILE_NAME}', mode='w', encoding='utf-8') as f:
+        f.write(
+            'title|sub_title|article|author|author_articles|tags|img|link|datetime\n')
+        f.close()
+
+    main(URL, FILE_NAME)
